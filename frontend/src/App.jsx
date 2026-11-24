@@ -4,9 +4,8 @@ import ReactMarkdown from "react-markdown";
 import "./App.css";
 
 function App() {
-  const [repoUrl, setRepoUrl] = useState(
-    "https://github.com/bkaran-005/Demo_repo.git"
-  );
+  const [repoUrl, setRepoUrl] = useState("");
+  const [showLanding, setShowLanding] = useState(true);
   const [repoPath, setRepoPath] = useState("");
   const [commits, setCommits] = useState([]);
   const [oldHash, setOldHash] = useState("");
@@ -198,7 +197,81 @@ function App() {
 
     return `${title} (${commit.hash.slice(0, 7)})`;
   }
+  if (showLanding) {
+  return (
+    <main className="landing-page">
+      <nav className="landing-nav">
+        <div className="landing-logo">
+          <span className="landing-logo-mark">{"</>"}</span>
+          <strong>ChangeScope</strong>
+        </div>
 
+        <span className="landing-nav-label">
+          AI Change Impact & Risk Analyzer
+        </span>
+      </nav>
+
+      <section className="landing-hero">
+        <div className="landing-eyebrow">
+          CODE CHANGE INTELLIGENCE
+        </div>
+
+        <h1>
+          Understand the impact.
+          <br />
+          Ship with confidence.
+        </h1>
+
+        <p>
+          Compare GitHub commits, assess potential code risks,
+          and understand what changed with AI-assisted insights.
+          A smarter way to review changes before deployment.
+        </p>
+
+        <button
+          type="button"
+          className="landing-primary-btn"
+          onClick={() => setShowLanding(false)}
+        >
+          Start Analyzing <span aria-hidden="true">→</span>
+        </button>
+
+        <div className="landing-feature-grid">
+          <article className="landing-feature">
+            <span className="landing-feature-number">01</span>
+            <h3>Commit Comparison</h3>
+            <p>
+              Compare two revisions and inspect exactly
+              what changed in your repository.
+            </p>
+          </article>
+
+          <article className="landing-feature">
+            <span className="landing-feature-number">02</span>
+            <h3>Risk Assessment</h3>
+            <p>
+              Get an estimated risk score and identify
+              potentially affected code areas.
+            </p>
+          </article>
+
+          <article className="landing-feature">
+            <span className="landing-feature-number">03</span>
+            <h3>AI-Assisted Insights</h3>
+            <p>
+              Understand code changes through clear
+              explanations and review recommendations.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <footer className="landing-footer">
+        ChangeScope · AI Change Impact & Risk Analyzer
+      </footer>
+    </main>
+  );
+}
   const risk = analysis?.risk_analysis;
   const impact = analysis?.impact_analysis;
   const comparison = analysis?.comparison;
@@ -444,17 +517,12 @@ function App() {
 
             <details className="ai-panel ai-accordion">
               <summary className="ai-accordion-header">
-                <span className="ai-accordion-icon">✦</span>
-
                 <span className="ai-accordion-title">
-                  <strong>AI-powered explanation</strong>
-                  <small>Gemini insights · Risk assessment · Suggestions</small>
+                  <strong>AI Analysis</strong>
+                  <small>Change summary, potential risks and recommendations</small>
                 </span>
 
-                <span className="ai-accordion-right">
-                  <span className="ai-badge">Gemini AI</span>
-                  <span className="ai-chevron">⌄</span>
-                </span>
+                <span className="ai-chevron" aria-hidden="true"></span>
               </summary>
 
               <div className="ai-accordion-content">
