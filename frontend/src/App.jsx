@@ -4,12 +4,13 @@ import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowRight, GitCompareArrows, RefreshCw, LoaderCircle, AlertTriangle, FileCode2, ChevronDown } from "lucide-react";
+import { ArrowRight, GitCompareArrows, RefreshCw, LoaderCircle, AlertTriangle, FileCode2, ChevronDown, Check, ChevronsUpDown, GitCommitHorizontal, ArrowUpRight, ShieldAlert, Sparkles, GitBranch, Search, Code2 } from "lucide-react";
 import "./App.css";
 
 
@@ -29,26 +30,67 @@ const formatDate = (commit) => {
 };
 
 const CommitPicker = memo(function CommitPicker({ label, value, commits, onChange }) {
+  const [open, setOpen] = useState(false);
+  const selected = commits.find((commit) => commit.hash === value);
+
   return (
     <div className="cs-picker">
       <span className="cs-picker-label">{label}</span>
-      <Select value={value || undefined} onValueChange={onChange}>
-        <SelectTrigger className="cs-select-trigger" aria-label={`${label} commit`}>
-          <SelectValue placeholder="Choose commit">
-            {value && <span className="cs-selected"><code>{short(value)}</code><span>{cleanLine(commits.find((c) => c.hash === value)?.message) || "Commit"}</span></span>}
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent className="cs-select-content">
-          {commits.map((commit) => (
-            <SelectItem key={commit.hash} value={commit.hash} className="cs-select-item">
-              <span className="cs-commit-option">
-                <span><code>{short(commit.hash)}</code> {cleanLine(commit.message) || "Untitled commit"}</span>
-                {(commit.author || commit.date || commit.author_date) && <small>{[commit.author, formatDate(commit)].filter(Boolean).join(" · ")}</small>}
-              </span>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="cs-select-trigger flex w-full min-w-0 items-center justify-between gap-2 text-left"
+            aria-label={`${label} commit`}
+            aria-expanded={open}
+            aria-haspopup="dialog"
+          >
+            <span className="cs-selected min-w-0 flex-1">
+              {selected ? (
+                <>
+                  <code className="shrink-0">{short(selected.hash)}</code>
+                  <span className="min-w-0 truncate">{cleanLine(selected.message) || "Commit"}</span>
+                </>
+              ) : <span className="text-[#9299A8]">Choose commit</span>}
+            </span>
+            <ChevronsUpDown size={14} className="shrink-0 text-[#9299A8]" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          sideOffset={6}
+          className="w-[min(350px,calc(100vw-32px))] overflow-hidden rounded-xl border border-[#2B303A] bg-[#101319] p-1.5 text-[#E6E9F1] shadow-xl"
+        >
+          <Command className="bg-transparent text-inherit" filter={(value, search) => value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
+            <CommandInput placeholder="Search commits..." className="text-sm" />
+            <CommandList className="max-h-[190px] overflow-y-auto overscroll-contain">
+              <CommandEmpty>No matching commits.</CommandEmpty>
+              <CommandGroup>
+                {commits.map((commit, index) => (
+                  <CommandItem
+                    key={commit.hash}
+                    value={`${commit.hash} ${cleanLine(commit.message)} ${commit.author || ""}`}
+                    onSelect={() => { onChange(commit.hash); setOpen(false); }}
+                    className="my-0.5 cursor-pointer gap-2 rounded-md px-2 py-2 text-[#E6E9F1] data-[selected=true]:bg-[#20263A] data-[selected=true]:text-white"
+                  >
+                    <GitCommitHorizontal size={15} className="shrink-0 text-[#8B9CFF]" />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2">
+                        <code className="text-xs text-[#A5B0FF]">{short(commit.hash)}</code>
+                        {index === 0 && <span className="rounded border border-[#3B4567] px-1 text-[10px] text-[#A5B0FF]">Latest</span>}
+                      </span>
+                      <span className="block truncate text-xs text-[#C8CDDA]" title={cleanLine(commit.message)}>
+                        {cleanLine(commit.message) || "Untitled commit"}
+                      </span>
+                    </span>
+                    {value === commit.hash && <Check size={14} className="shrink-0 text-[#8B9CFF]" />}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 });
@@ -69,22 +111,38 @@ const Gauge = memo(function Gauge({ score, level }) {
 });
 
 const AiTile = memo(function AiTile({ explanation, fallback }) {
-  const [open, setOpen] = useState(false);
   const content = String(explanation || "").trim();
   const unavailable = !content || /^(AI explanation unavailable|AI explanation is temporarily unavailable|No AI explanation)/i.test(content);
-  const match = content.match(/(?:^|\n)SHORT SUMMARY:\s*([\s\S]*?)\n\s*DETAILED ANALYSIS:\s*([\s\S]*)/i);
+  const match = content.match(/(?:^|\\n)SHORT SUMMARY:\\s*([\\s\\S]*?)\\n\\s*DETAILED ANALYSIS:\\s*([\\s\\S]*)/i);
   const summary = unavailable ? fallback : match
-    ? match[1].replace(/\s+/g, " ").trim()
+    ? match[1].replace(/\\s+/g, " ").trim()
     : fallback;
   const details = match ? match[2].trim() : content;
+
   return (
     <article className="cs-tile cs-ai">
       <div className="cs-tile-label"><span className="cs-accent-symbol">✧</span> AI SUMMARY</div>
       <p className="cs-summary">{summary}</p>
-      <Collapsible open={open} onOpenChange={setOpen}>
-        <CollapsibleTrigger asChild><button className="cs-text-button" type="button">{open ? "Hide full analysis" : "Read full analysis"} <ChevronDown size={14} className={open ? "cs-rotate" : ""} /></button></CollapsibleTrigger>
-        <CollapsibleContent><div className="cs-markdown"><ReactMarkdown>{details || "AI analysis is not available. Check the Gemini API configuration."}</ReactMarkdown></div></CollapsibleContent>
-      </Collapsible>
+      <Dialog>
+        <DialogTrigger asChild>
+          <button className="cs-text-button" type="button">
+            Read full analysis <ArrowRight size={14} />
+          </button>
+        </DialogTrigger>
+        <DialogContent className="flex max-h-[80vh] w-[calc(100vw-32px)] max-w-[720px] flex-col gap-4 overflow-hidden border border-[#2B303A] bg-[#101319] text-[#E6E9F1] shadow-2xl sm:max-w-[720px]">
+          <DialogHeader className="shrink-0">
+            <DialogTitle className="text-lg font-semibold text-[#E6E9F1]">AI Change Impact Analysis</DialogTitle>
+            <DialogDescription className="text-sm text-[#A0A7B5]">
+              Detailed insights, potential impact, and suggested tests for the selected commits.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="cs-dialog-scroll min-h-0 flex-1 overflow-y-auto pr-2">
+            <div className="cs-markdown">
+              <ReactMarkdown>{details || "AI analysis is not available. Check the Gemini API configuration."}</ReactMarkdown>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </article>
   );
 });
@@ -111,31 +169,83 @@ function parseDiff(diff) {
 }
 const sensitiveLine = (line) => /password|secret|token|api[_-]?key|eval\(|exec\(|disable.*auth|verify\s*=\s*false/i.test(line);
 
-const DiffTile = memo(function DiffTile({ diff, files }) {
-  const lines = useMemo(() => parseDiff(diff), [diff]);
-  return <article className="cs-tile cs-diff">
-    <div className="cs-diff-heading"><div className="cs-tile-label"><FileCode2 size={15} /> CODE DIFF</div><span className="cs-muted cs-mono">{files?.length === 1 ? files[0] : `${files?.length || 0} changed files`}</span></div>
-    <ScrollArea className="cs-diff-scroll"><div className="cs-code" role="region" aria-label="Git diff">
-      {lines.map((line) => {
-        const flagged = line.type === "added" && sensitiveLine(line.text);
-        return <div key={line.i} className={`cs-code-line cs-code-${line.type} ${flagged ? "cs-code-flagged" : ""}`}>
-          <span className="cs-line-number">{line.old ?? ""}</span><span className="cs-line-number">{line.next ?? ""}</span><span className="cs-line-text">{line.text || " "}{flagged && <span className="cs-line-flag">Review sensitive code</span>}</span>
-        </div>;
-      })}
-    </div></ScrollArea>
-  </article>;
-});
-
-const FilesTile = memo(function FilesTile({ files, added, removed, level }) {
-  return <article className="cs-tile cs-files">
-    <div className="cs-tile-label">CHANGED FILES</div>
-    {files?.length ? files.map((file, i) => <div className="cs-file-row" key={`${file}-${i}`}>
-      <span className={`cs-risk-dot cs-${riskTone(level)}`} /><code title={file}>{file}</code>
-      <div className="cs-file-bars"><span className="cs-file-bar-add" style={{ flex: added || 0 }} /><span className="cs-file-bar-remove" style={{ flex: removed || 0 }} /></div>
-      {files.length === 1 && <span className="cs-file-count"><span className="cs-added">{added ? `+${added}` : "0"}</span> <span className={removed ? "cs-removed" : "cs-muted"}>{removed ? `−${removed}` : "0"}</span></span>}
-    </div>) : <p className="cs-muted">No changed files identified.</p>}
-    {files?.length > 1 && <p className="cs-muted cs-file-note">+{added} / −{removed} lines across all files</p>}
-  </article>;
+const CodeChangesTile = memo(function CodeChangesTile({ diff, files, added, removed }) {
+  const [open, setOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState("all");
+  const sections = useMemo(() => {
+    const source = String(diff || "");
+    if (!source.trim()) return [];
+    return source.split(/(?=^diff --git )/m).filter(Boolean).map((chunk, index) => {
+      const match = chunk.match(/^diff --git a\/(.*?) b\/(.*)$/m);
+      return { id: String(index), file: match?.[2] || match?.[1] || `Diff ${index + 1}`, text: chunk };
+    });
+  }, [diff]);
+  const fileNames = useMemo(() => {
+    const names = Array.isArray(files) ? files : [];
+    return [...new Set([...names, ...sections.map((section) => section.file)])];
+  }, [files, sections]);
+  const selectedSection = sections.find((section) => section.file === selectedFile);
+  const visibleDiff = selectedFile === "all" ? String(diff || "") : selectedSection?.text || "";
+  const lines = useMemo(() => open ? parseDiff(visibleDiff) : [], [visibleDiff, open]);
+  return (
+    <article className="cs-tile cs-changes-tile">
+      <div className="cs-diff-heading">
+        <div className="cs-tile-label"><FileCode2 size={15} /> CODE CHANGES</div>
+        <span className="cs-files-count">{fileNames.length} changed files</span>
+      </div>
+      <div className="cs-changes-preview">
+        <div className="cs-diff-preview-icon"><Code2 size={22} /></div>
+        <div className="cs-changes-preview-copy">
+          <strong>Explore changed files &amp; code</strong>
+          <p><span className="cs-added">+{added ?? 0} additions</span><span className="cs-removed">−{removed ?? 0} deletions</span></p>
+        </div>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button type="button" className="cs-diff-open-btn" disabled={!String(diff || "").trim()}>
+              View changes <ArrowUpRight size={15} />
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="cs-diff-dialog flex max-h-[85vh] w-[calc(100vw-24px)] max-w-[1150px] flex-col gap-3 overflow-hidden border border-[#2B303A] bg-[#101319] p-4 text-[#E6E9F1] shadow-2xl sm:max-w-[1150px] sm:p-5">
+            <DialogHeader className="shrink-0 pr-7">
+              <DialogTitle className="flex items-center gap-2 text-lg text-[#E6E9F1]"><FileCode2 size={18} className="text-[#8B9CFF]" /> Code Changes</DialogTitle>
+              <DialogDescription className="text-[#A0A7B5]">{fileNames.length} changed files. Choose a file to inspect its additions and deletions.</DialogDescription>
+            </DialogHeader>
+            <div className="cs-changes-dialog-body">
+              <aside className="cs-changes-sidebar" aria-label="Changed files">
+                <div className="cs-changes-sidebar-title">CHANGED FILES</div>
+                <div className="cs-dialog-scroll cs-changes-file-list">
+                  <button type="button" className={`cs-changes-file ${selectedFile === "all" ? "is-active" : ""}`} onClick={() => setSelectedFile("all")}>
+                    <GitCompareArrows size={14} /><span>All files</span><small>{fileNames.length}</small>
+                  </button>
+                  {fileNames.map((file) => (
+                    <button key={file} type="button" title={file} className={`cs-changes-file ${selectedFile === file ? "is-active" : ""}`} onClick={() => setSelectedFile(file)}>
+                      <FileCode2 size={14} /><span>{file}</span>
+                    </button>
+                  ))}
+                </div>
+              </aside>
+              <section className="cs-changes-diff-pane" aria-label="Selected code diff">
+                <div className="cs-changes-diff-title">
+                  <span title={selectedFile === "all" ? "All files" : selectedFile}>{selectedFile === "all" ? "All files" : selectedFile}</span>
+                  <small>{lines.length.toLocaleString()} lines</small>
+                </div>
+                <div className="cs-dialog-scroll cs-diff-dialog-scroll cs-changes-code-scroll" role="region" aria-label="Git code diff" tabIndex={0}>
+                  <div className="cs-code">
+                    {lines.length ? lines.map((line) => {
+                      const flagged = line.type === "added" && sensitiveLine(line.text);
+                      return <div key={line.i} className={`cs-code-line cs-code-${line.type} ${flagged ? "cs-code-flagged" : ""}`}>
+                        <span className="cs-line-number">{line.old ?? ""}</span><span className="cs-line-number">{line.next ?? ""}</span><span className="cs-line-text">{line.text || " "}</span>
+                      </div>;
+                    }) : <p className="p-4 text-sm text-[#AAB4C5]">No diff available for this file.</p>}
+                  </div>
+                </div>
+              </section>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </article>
+  );
 });
 
 const AreasTile = memo(function AreasTile({ areas }) {
@@ -164,6 +274,7 @@ function App() {
   const [newHash, setNewHash] = useState("");
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [fileRequest, setFileRequest] = useState(null);
 
   async function request(url, options = {}) {
     const response = await fetch(url, options);
@@ -363,55 +474,33 @@ function App() {
         </span>
       </nav>
 
-      <section className="landing-hero">
-        <div className="landing-eyebrow">
-          CODE CHANGE INTELLIGENCE
+      <section className="landing-hero landing-hero-updated">
+        <div className="landing-hero-grid">
+          <div className="landing-hero-copy">
+            <div className="landing-eyebrow"><span className="landing-eyebrow-dot" /> CODE CHANGE INTELLIGENCE</div>
+            <h1>Every change has an impact. <span>Know it before you ship.</span></h1>
+            <p>Compare GitHub commits, uncover potential risks, and get actionable AI-assisted insights before deployment.</p>
+            <button type="button" className="landing-primary-btn" onClick={() => setShowLanding(false)}>
+              Start Analyzing <ArrowUpRight size={17} />
+            </button>
+          </div>
+          <div className="landing-preview" aria-label="Illustrative product preview">
+            <div className="landing-preview-top"><span><span className="landing-preview-live" /> PRODUCT PREVIEW</span><span className="landing-preview-demo">DEMO DATA</span></div>
+            <div className="landing-preview-commits"><GitCommitHorizontal size={16} /><code>a4c9e12</code><ArrowRight size={14} /><code>f7b2d84</code></div>
+            <div className="landing-preview-risk">
+              <div className="landing-preview-score">85<span>/100</span></div>
+              <div><span className="landing-preview-risk-tag"><ShieldAlert size={12} /> HIGH RISK</span><strong>Authentication logic updated</strong><small>4 files changed · +128 / −42</small></div>
+            </div>
+            <div className="landing-preview-divider" />
+            <div className="landing-preview-insight"><span><Sparkles size={14} /> AI INSIGHT</span><p>Review authentication changes and run targeted regression tests before merging.</p></div>
+            <div className="landing-preview-bottom"><span><Check size={13} /> Git comparison</span><span><Check size={13} /> Risk assessment</span><span><Check size={13} /> AI insights</span></div>
+          </div>
         </div>
-
-        <h1>
-          Understand the impact.
-          <br />
-          Ship with confidence.
-        </h1>
-
-        <p>
-          Compare GitHub commits, assess potential code risks,
-          and understand what changed with AI-assisted insights.
-          A smarter way to review changes before deployment.
-        </p>
-
-        <button
-          type="button"
-          className="landing-primary-btn"
-          onClick={() => setShowLanding(false)}
-        >
-          Start Analyzing <span aria-hidden="true">→</span>
-        </button>
-
-        <div className="landing-feature-grid">
-          <article className="landing-feature">
-            <h3>Commit Comparison</h3>
-            <p>
-              Compare two revisions and inspect exactly
-              what changed in your repository.
-            </p>
-          </article>
-
-          <article className="landing-feature">
-            <h3>Risk Assessment</h3>
-            <p>
-              Get an estimated risk score and identify
-              potentially affected code areas.
-            </p>
-          </article>
-
-          <article className="landing-feature">
-            <h3>AI-Assisted Insights</h3>
-            <p>
-              Understand code changes through clear
-              explanations and review recommendations.
-            </p>
-          </article>
+        <div className="landing-feature-grid" aria-label="ChangeScope capabilities">
+          <div className="landing-feature"><span className="landing-feature-icon"><GitCompareArrows size={17} /></span><h3>Commit Comparison</h3></div>
+          <div className="landing-feature"><span className="landing-feature-icon"><ShieldAlert size={17} /></span><h3>Risk Assessment</h3></div>
+          <div className="landing-feature"><span className="landing-feature-icon"><Sparkles size={17} /></span><h3>AI-Assisted Insights</h3></div>
+          <div className="landing-feature"><span className="landing-feature-icon"><GitBranch size={17} /></span><h3>Impact Analysis</h3></div>
         </div>
       </section>
 
@@ -443,14 +532,19 @@ function App() {
           {repoPath ? <div className="cs-repo-pill"><span className="cs-online" /><code>{getRepoName(repoUrl)}</code><span className="cs-pill-separator">·</span><span>{commits.length} commits</span><button type="button" onClick={() => { setRepoPath(""); setCommits([]); setAnalysis(null); }} className="cs-change-repo">Change</button></div> : <span className="cs-topbar-label">Change Impact & Risk Analyzer</span>}
         </div>
       </header>
-      {!repoPath ? <section className="cs-connect">
-        <div className="cs-connect-icon"><GitCompareArrows size={22} /></div>
-        <h1>Connect a repository</h1>
-        <p>Enter a public GitHub repository URL to compare commits and assess potential risks.</p>
-        <form className="cs-connect-form" onSubmit={(event) => { event.preventDefault(); loadRepository(); }}>
-          <input aria-label="GitHub repository URL" type="url" placeholder="https://github.com/owner/repository" value={repoUrl} onChange={(event) => setRepoUrl(event.target.value)} />
-          <Button type="submit" disabled={loading || !repoUrl.trim()}>{loading ? <LoaderCircle className="cs-spin" size={16} /> : null}{loading ? "Connecting..." : "Connect repository"}</Button>
+      {!repoPath ? <section className="cs-connect cs-connect-refined">
+        <div className="cs-connect-intro">
+          <div className="cs-connect-icon"><GitBranch size={23} /></div>
+          <span className="cs-connect-eyebrow">REPOSITORY SETUP</span>
+          <h1>Let's analyze your code.</h1>
+          <p>Connect your GitHub repository to uncover changes, risks, and AI-powered insights.</p>
+        </div>
+        <form className="cs-connect-form cs-connect-panel" onSubmit={(event) => { event.preventDefault(); loadRepository(); }}>
+          <label htmlFor="cs-repository-url">Repository URL</label>
+          <input id="cs-repository-url" aria-label="GitHub repository URL" type="url" placeholder="Enter your repository" value={repoUrl} onChange={(event) => setRepoUrl(event.target.value)} autoComplete="url" required />
+          <Button type="submit" disabled={loading || !repoUrl.trim()}>{loading ? <LoaderCircle className="cs-spin" size={16} /> : <ArrowRight size={17} />}{loading ? "Connecting..." : "Connect repository"}</Button>
         </form>
+        <p className="cs-connect-footnote"><ShieldAlert size={13} /> Public GitHub repositories only · Read-only analysis</p>
       </section> : <>
         <section className="cs-command-bar">
           <div className="cs-command-inner">
@@ -493,11 +587,8 @@ function App() {
             <div className="cs-bento">
               <AiTile key={`${oldHash}-${newHash}`} explanation={analysis.ai_explanation} fallback={fallback} />
               <RiskTile reasons={risk?.reasons} level={level} />
-              <DiffTile diff={comparison?.code_diff} files={files} />
-              <div className="cs-side-stack">
-                <FilesTile files={files} added={added} removed={removed} level={level} />
-                <AreasTile areas={impact?.potentially_affected_areas} />
-              </div>
+              <CodeChangesTile diff={comparison?.code_diff} files={files} added={added} removed={removed} />
+              <AreasTile areas={impact?.potentially_affected_areas} />
               <RecommendationsTile key={`${oldHash}-${newHash}`} recommendations={impact?.recommendations} />
             </div>
             <p className="cs-disclaimer">Risk scores and impact categories are heuristic estimates. They do not confirm defects or actual dependency relationships. Review AI suggestions against the code.</p>
